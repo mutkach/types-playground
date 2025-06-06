@@ -7,6 +7,7 @@ pub type TIndex = usize;
 #[derive(Debug, Clone)]
 pub enum Term {
     TTrue,
+    //TLet(TIndex, Box<Term>),
     TFalse,
     TVariable(TIndex),
     TConditional(Box<(Term, Term, Term)>),

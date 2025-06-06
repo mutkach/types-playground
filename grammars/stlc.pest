@@ -1,0 +1,11 @@
+typename = { "Bool" }
+keywords = {"if" | "then" | "else" | "true" | "false" | "Bool" }
+variable_name = { !keywords ~  ASCII_ALPHA+ }
+WHITESPACE = { " "+ }
+arrow = {"->"}
+lambda = { "fun" ~ variable_name ~ arrow  ~  ("(" ~ term ~ ")" | term ) }
+declaration = { variable_name ~ ":" ~ typename }
+bool = { "true" | "false" }
+conditional = { "if"  ~ term  ~ "then" ~ term ~ "else" ~ term }
+application = { "(" ~ term ~ ")" ~ "(" ~ term ~ ")" }
+term = { lambda | conditional | bool | variable_name | ( "(" ~ term ~ ")" ) } 
