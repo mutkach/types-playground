@@ -1,3 +1,4 @@
+use pest::error::Error;
 use pest::{iterators::Pair, Parser, RuleType};
 use pest_derive::Parser;
 
@@ -15,126 +16,104 @@ struct STLCParser;
 //fun x -> x 
 //fun x -> true 
 //fun x -> if x then false else true
-//(false)(fun x -> if x then false else true)
+//
+//
+pub fn parse() -> Result<Vec<Term>, Error<Rule>> {
+    let mut ast = vec![];
+
+    Ok(ast)
+}
 
 pub fn parse_ast(pair: Pair<Rule>, context: &mut Context) -> Option<Term> {
+
     match pair.as_rule() {
         Rule::term => {
-                let inner_pair = pair.into_inner().next().unwrap();
-                parse_ast(inner_pair, context)
-            },
-        Rule::bool => {
-                match pair.as_str() {
-                    "true" => Some(Term::TTrue),
-                    "false" => Some(Term::TFalse),
-                    _ => unreachable!("Rule bool contains only two keywords")
-                }
-            },
-        Rule::lambda => {
-                let inner = pair.into_inner();
-                let mut param_name = "";
-                let mut body = None; //Placeholder
-                for p in inner.into_iter() {
-                    match p.as_rule() {
-                        Rule::WHITESPACE | Rule::arrow => continue,
-                        Rule::variable_name => param_name = p.as_str().trim(),
-                        Rule::term => body = parse_ast(p.clone(), context),
-                        _ => unreachable!("Rule lambda has only name, term and arrow")
-                    }
-                }
-                Some(Term::TAbstraction((param_name.to_string(), Box::new(body.unwrap()))))
-            },
-        Rule::application => {
-                let inner = pair.into_inner();
-                let mut terms = Vec::new();
-                for p in inner.into_iter() {
-                    match p.as_rule() {
-                        Rule::WHITESPACE => continue,
-                        Rule::term => { terms.push(parse_ast(p.clone(), context).expect("could not parse")) }
-                        _ => unreachable!("Rule application consists only of whitespace and two terms")
-                    }
-                }
-                assert_eq!(terms.len(), 2);
-                Some(Term::TApplication(Box::new((terms[0].clone(), terms[1].clone()))))
-            }
-        Rule::declaration => {
-            let inner = pair.into_inner();
-            //let mut name = None;
-            let mut typename = "";
-            for p in inner.into_iter() {
-                match p.as_rule() {
-                    Rule::WHITESPACE => continue,
-                    Rule::typename => typename = p.as_str(),
-                    Rule::variable_name => {
-                        match typename {
-                            "Bool" => {
-                                let index = context.add_binding(p.as_str(), Binding::VariableBinding(TType::TBool));
-                                return Some(Term::TVariable(index));
-                            }
-                            _ => panic!("Only booleans supported"),
-
-                        }
-                    },
-                    _ => unreachable!()
-                }
-            }
-            return None
-
+            println!("Rule for term received: {:?}", pair.as_str());
+            parse_ast(pair.into_inner().next()?, context)
         },
-        Rule::conditional => {
-            let inner = pair.into_inner();
-            let mut terms = Vec::new();
-            let mut count_keywords = 0;
-            for p in inner.into_iter() {
-                 
-                match p.as_rule() {
-                    Rule::keywords => {
-                        count_keywords += 1;
-                        match count_keywords {
-                            1 => assert_eq!(p.as_str(), "if"),
-                            2 => assert_eq!(p.as_str(), "then"),
-                            3 => assert_eq!(p.as_str(), "else"),
-                            _ => unreachable!()
-                        }
+        Rule::lambda => {
+            
+            let mut variable_name = "";
+            let mut inner_term = None;
+            for inner_pair in pair.into_inner() {
+                match inner_pair.as_rule() {
+                    Rule::variable_name => {
+                        variable_name = inner_pair.as_str();
                     },
                     Rule::term => {
-                        let try_parse = parse_ast(p.clone(), context);
-                        match try_parse {
-                            Some(parsed_term) => terms.push(parsed_term),
-                            None => return None
-                        }
-                    }
+                        inner_term = parse_ast(inner_pair, context);
+                    },
                     _ => unreachable!()
                 }
-                assert_eq!(terms.len(), 3);
-                return Some(
-                    Term::TConditional(
-                        Box::new(
-                            (terms[0].clone(), terms[1].clone(), terms[2].clone())
-                            )
-                        )
-                    );
+            }
+            println!("Rule for lambda:\n - variable name: {:?}\n - inner_term: {:?}", variable_name, inner_term);
+            let Some(parsed_term) = inner_term else {
+                return None;
+            };
+            Some(Term::TAbstraction((variable_name.to_string(), Box::new(parsed_term))))
+
+
+        }
+        Rule::application_term => {
+            for inner_pair in pair.into_inner() {
+                println!("Application term: {:?}", inner_pair.as_str());
+                if inner_pair.as_rule() == Rule::atom {
+                    return parse_ast(inner_pair, context)
+                }
             }
             None
+        }
+        Rule::conditional => todo!(),
+        Rule::atom => {
+            for inner_pair in pair.into_inner() {
+                println!("atoms: {:?}", inner_pair.as_str());
+                if inner_pair.as_rule() == Rule::bool {
+                    return parse_ast(inner_pair, context)
+                }
+            }
+            None
+        }
+        Rule::bool => {
+            println!("Bool: '{}'", pair.as_str());
+            match pair.as_str() {
+                "true" => Some(Term::TTrue),
+                "false" => Some(Term::TFalse),
+                _ => None
+            }
         },
-        _ => unreachable!()
+
+        Rule::variable_name => unreachable!(),
+        Rule::WHITESPACE => unreachable!(),
+        Rule::base_type => unreachable!(),
+        Rule::arrow_type => unreachable!(),
+        Rule::typename => unreachable!(),
+        Rule::keywords => unreachable!(),
+        Rule::declaration => unreachable!(),
     }
+
 }
 
 #[test]
 fn test1() {
-    if let Ok(term) = STLCParser::parse(Rule::term, "fun x -> (fun y -> true) ") {
+    if let Ok(term) = STLCParser::parse(Rule::term, "fun x -> fun y -> true") {
         let mut context = Context::new();
-        println!("{:?}", parse_ast(term.into_iter().next().unwrap(), &mut context));
+        println!("Test1: {:?}", parse_ast(term.into_iter().next().unwrap(), &mut context));
     };
 }
-
 
 #[test]
 fn test2() {
-    if let Ok(term) = STLCParser::parse(Rule::term, "fun x -> false ") {
+    if let Ok(term) = STLCParser::parse(Rule::term, "fun x -> fun y -> x") {
         let mut context = Context::new();
-        println!("{:?}", parse_ast(term.into_iter().next().unwrap(), &mut context));
+        println!("Test1: {:?}", parse_ast(term.into_iter().next().unwrap(), &mut context));
     };
 }
 
+#[test]
+#[ignore]
+fn test3() {
+    if let Ok(term) = STLCParser::parse(Rule::term, "if false then true else false") {
+        let mut context = Context::new();
+        println!("Test2: {:?}", parse_ast(term.into_iter().next().unwrap(), &mut context));
+    };
+}

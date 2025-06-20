@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use super::context::Context;
 
 pub type TIndex = usize;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Term {
     TTrue,
     //TLet(TIndex, Box<Term>),
@@ -13,6 +13,29 @@ pub enum Term {
     TConditional(Box<(Term, Term, Term)>),
     TAbstraction((String, Box<Term>)),
     TApplication(Box<(Term, Term)>)
+}
+
+impl fmt::Debug for Term {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let output = match &self {
+            Term::TTrue => format!("true"),
+            Term::TFalse => format!("false"),
+            Term::TVariable(var) => format!("V({})", var),
+            Term::TConditional(terms) => {
+                let (t1, t2, t3) = *terms.clone();
+                format!("if {:?} then {:?} else {:?}", t1, t2, t3)
+            },
+            Term::TAbstraction((var, term)) => {
+                let t1 = *term.clone();
+                format!("fun {} -> {:?}", var, t1)
+            },
+            Term::TApplication(terms) => {
+                let (t1, t2) = *terms.clone();
+                format!("({:?}) ({:?})", t1, t2)
+            }
+        };
+        f.write_str(&output)
+    }
 }
 
 
